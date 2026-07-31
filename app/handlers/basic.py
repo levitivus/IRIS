@@ -1,7 +1,7 @@
 """
 app/handlers/basic.py
 
-Contains basic command handlers for the IRIS Telegram bot (/start and /help).
+Contains basic command and callback handlers for the IRIS Telegram bot (/start, /help, and main menu callback).
 """
 
 from telegram import Update
@@ -38,3 +38,16 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             "/start - Start the bot and verify status\n"
             "/help - Display this help message"
         )
+
+
+async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Handler function for processing main menu inline keyboard button presses.
+    Answers the callback query immediately to stop the loading animation,
+    and sends a 'Coming Soon 🚧' reply message.
+    """
+    query = update.callback_query
+    if query:
+        await query.answer()
+        if query.message:
+            await query.message.reply_text("Coming Soon 🚧")
