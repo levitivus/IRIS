@@ -6,19 +6,10 @@ Sets up the bot application, registers command handlers, and starts polling for 
 """
 
 import sys
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler
 
 import config
-
-
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Handler function for the /start command.
-    Sends a greeting message back to the user when they type /start.
-    """
-    if update.message:
-        await update.message.reply_text("Hello!\nIRIS is online.")
+from app.handlers.basic import help_command, start_command
 
 
 def main() -> None:
@@ -32,8 +23,9 @@ def main() -> None:
     # Build the Application using the bot token loaded from config.py
     application = ApplicationBuilder().token(config.BOT_TOKEN).build()
 
-    # Register the /start command handler
+    # Register command handlers from app.handlers.basic
     application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(CommandHandler("help", help_command))
 
     # Start polling for incoming messages from Telegram
     print("IRIS bot is starting...")
