@@ -5,7 +5,7 @@ This module is responsible for loading environment configuration variables
 from the `.env` file using `python-dotenv`.
 
 Centralizing configuration here prevents hardcoding sensitive values
-(like API keys or bot tokens) directly in the source code.
+(like API keys, bot tokens, or database credentials) directly in the source code.
 """
 
 import os
@@ -16,6 +16,13 @@ load_dotenv()
 
 # Retrieve Telegram Bot Token from environment variables
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+
+# Retrieve PostgreSQL Database configuration variables
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DB_NAME", "iris_bot")
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 
 if not BOT_TOKEN or BOT_TOKEN == "YOUR_TELEGRAM_BOT_TOKEN":
     print("Warning: BOT_TOKEN is not configured or using default placeholder in .env file.")
