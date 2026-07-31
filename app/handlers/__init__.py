@@ -1,0 +1,3 @@
+"""
+app.handlers package initializer.
+"""
