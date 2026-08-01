@@ -1,0 +1,54 @@
+SEMESTER 1
+***********
+M24CA1C101 - Mathematical Foundations of Computing &Statistical Approaches
+M24CA1C102 - Digital Fundamentals and Computer Architecture
+M24CA1C103 - Advanced Software Engineering
+M24CA1C104 - Advanced Data Structures
+M24CA1B105 - Web Development Lab
+M24CA1L106 - Programming Lab
+M24CA1L107 - Data Structures Lab
+M24CA1N108 - Research Methodology and Publication Ethics
+
+
+SEMESTER 2
+***********
+M24CA1C201 - Advanced Computer Networks
+M24CA1C202 - Advanced Database Management System
+M24CA1C203 - Advanced Operating Systems
+M24CA1E204B - Data Visualization and Predictive Analytics (Elective 1)
+M24CA1E204D - Cloud Computing (Elective 1)
+M24CA1B205 - Object Oriented Programming Lab
+M24CA1L206 - Advanced Database Lab
+M24CA1L207 - Operating Systems Lab
+M24CA1N208 - Personality Development through Life Enlightenment Skills
+
+SEMESTER 3
+***********
+M24CA1C301 - Data Science and Machine Learning
+M24CA1C302 - Design and Analysis of Algorithms
+M24CA1E303A - Artificial Intelligence ( Elective 2)
+M24CA1E303D - Big Data Management and Analytics (Elective 2)
+M24CA1E304A - Deep Learning (Elective 3)
+M24CA1E304D - Cloud Computing with AWS/ Azure/ Google Cloud Platform (Elective 3)
+M24CA1B305 - Mobile Applications Development Lab
+M24CA1L306 - Data Science Lab
+M24CA1N308 - Professional Ethics & Human Values
+
+SEMESTER 4
+***********
+M24CA1S402 - Seminar 
+MOOC Course - MOOC Course
+
+
+
+MINI-PROJECT
+*************
+M24CA1M307
+
+INTERNSHIP 
+***********
+M24CA1I309
+
+MAIN PROJECT 
+*************
+M24CA1P401

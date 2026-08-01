@@ -1,0 +1,442 @@
+# IRIS Database Blueprint v1.0
+
+> **Status:** Frozen (Version 1.0)  
+> **Project:** IRIS - Cloud-Based Academic Resource Retrieval System  
+> **Purpose:** This document serves as the single source of truth for the IRIS database architecture. Any future changes should only be made if the project requirements change.
+
+---
+
+# 1. Project Scope
+
+## Objective
+
+Develop a Telegram Bot that enables MCA students to retrieve academic resources through a guided button-based navigation system.
+
+---
+
+## Constraints (Frozen)
+
+- Single MCA Department only.
+- Four semesters.
+- Less than 100 academic resources.
+- Less than 50 concurrent users.
+- PostgreSQL as the database.
+- Telegram Private Channel used for storing PDFs.
+- Telegram `file_id` used to retrieve files.
+- Button navigation is the primary interface.
+- NLP is a future enhancement and **does not affect the database design**.
+- Admin Panel will be developed later for resource management.
+
+---
+
+# 2. System Architecture
+
+```text
+Student
+    │
+    ▼
+Telegram Bot
+    │
+    ▼
+Python Backend
+    │
+    ▼
+PostgreSQL Database
+    │
+    ▼
+Telegram Private Channel
+```
+
+### Responsibilities
+
+### Telegram
+
+- User Interface
+- Stores PDFs
+
+### Python Backend
+
+- Handles navigation
+- Queries PostgreSQL
+- Sends files back to Telegram
+
+### PostgreSQL
+
+- Stores metadata
+- Stores subjects
+- Stores Telegram File IDs
+
+---
+
+# 3. Navigation Blueprint
+
+## 📄 Question Papers
+
+```text
+Question Papers
+
+├── Semester Examination
+│      ↓
+│   Semester
+│      ↓
+│   Year (≤ 2024)
+│      ↓
+│   Subject
+│      ↓
+│   PDF
+│
+├── Internal Examination
+│      ↓
+│   Semester
+│      ↓
+│   Year (≤ 2024)
+│      ↓
+│   Internal 1 / Internal 2
+│      ↓
+│   Subject
+│      ↓
+│   PDF
+│
+└── Sample Papers
+       ↓
+    Semester
+       ↓
+    Subject
+       ↓
+    PDF
+```
+
+---
+
+## 📚 Notes
+
+```text
+Notes
+
+↓
+
+Semester
+
+↓
+
+Subject
+
+↓
+
+Module 1
+
+Module 2
+
+Module 3
+
+Module 4
+
+Module 5
+```
+
+---
+
+## 🧪 Lab Manuals
+
+```text
+Lab Manuals
+
+├── Record Samples
+│      ↓
+│   Semester
+│      ↓
+│   Subject
+│
+├── Lab Question Papers
+│      ↓
+│   Semester
+│      ↓
+│   Year (≤ 2024)
+│      ↓
+│   Subject
+│
+├── Viva Questions
+│      ↓
+│   Semester
+│      ↓
+│   Subject
+│
+└── Micro Projects
+       ↓
+    Semester
+       ↓
+    Subject
+       ↓
+    PDF
+```
+
+### Subjects having Micro Projects
+
+#### Semester 1
+
+- M24CA1B105 - Web Development Lab
+- M24CA1L106 - Programming Lab
+
+#### Semester 2
+
+- M24CA1B205 - Object Oriented Programming Lab
+
+#### Semester 3
+
+- M24CA1B305 - Mobile Applications Development Lab
+
+---
+
+## 📁 Projects
+
+```text
+Projects
+
+├── Mini Project
+│      ├── Abstract Template
+│      ├── Title Presentation Template
+│      ├── Final Presentation Template
+│      └── Report Template
+│
+└── Main Project
+       ├── Abstract Template
+       ├── Title Presentation Template
+       ├── Final Presentation Template
+       └── Report Template
+```
+
+---
+
+## 📖 Reference Materials
+
+```text
+Reference Materials
+
+├── Bridge Course
+│      ├── Previous Year Papers
+│      ├── Sample Papers
+│      └── Syllabus
+│
+├── Micro Project Reports
+
+├── Internship Reports
+
+├── Internship Presentations
+
+└── Syllabus & Academic Guide
+```
+
+---
+
+## 💼 Placement Materials
+
+```text
+Placement Materials
+
+├── Aptitude
+
+├── Technical
+
+├── HR Interview
+
+└── Resume Templates
+```
+
+---
+
+# 4. Database Design
+
+## Table 1 : `subjects`
+
+### Purpose
+
+Stores every university subject exactly once.
+
+| Column | Type | Description |
+|---------|------|-------------|
+| id | SERIAL | Primary Key |
+| semester | INTEGER | Semester Number |
+| subject_code | VARCHAR(25) | University Subject Code |
+| subject_name | VARCHAR(255) | Subject Name |
+
+---
+
+## Table 2 : `resources`
+
+### Purpose
+
+Stores **every downloadable file** available in IRIS.
+
+**One row = One downloadable file**
+
+| Column | Type | Description |
+|---------|------|-------------|
+| id | SERIAL | Primary Key |
+| category | VARCHAR(50) | Main category |
+| subcategory | VARCHAR(80) | Navigation branch |
+| subject_id | INTEGER | FK → subjects.id (Nullable) |
+| semester | INTEGER | Nullable |
+| year | INTEGER | Nullable |
+| module | INTEGER | Nullable (Notes only) |
+| internal_exam | INTEGER | Nullable (Internal Exam only) |
+| title | VARCHAR(255) | Display Name |
+| file_name | VARCHAR(255) | Original uploaded filename |
+| telegram_file_id | TEXT | Telegram File ID |
+| uploaded_at | TIMESTAMP | Creation Timestamp |
+
+### Notes
+
+Not every resource requires every field.
+
+Examples:
+
+- Placement Materials have no semester.
+- Resume Templates have no subject.
+- Notes have modules but no year.
+- Semester Papers have year but no module.
+- Internal Papers have year + internal number.
+
+### Additional Notes
+
+- `title` is the name shown to students inside the Telegram bot.
+- `file_name` stores the original uploaded filename for easier administration and debugging.
+- `telegram_file_id` is the permanent Telegram identifier used to retrieve the file.
+
+---
+
+# 5. Database Relationships
+
+```text
+subjects
+──────────────
+id
+semester
+subject_code
+subject_name
+       │
+       │
+       ▼
+resources
+──────────────
+subject_id
+```
+
+Relationship:
+
+```
+One Subject
+        │
+        ▼
+Many Resources
+```
+
+---
+
+# 6. Navigation → Database Mapping
+
+| Navigation | Database Filters |
+|------------|------------------|
+| Semester Examination | category + subcategory + semester + year + subject_id |
+| Internal Examination | category + subcategory + semester + year + internal_exam + subject_id |
+| Sample Papers | category + subcategory + semester + subject_id |
+| Notes | category + semester + subject_id + module |
+| Record Samples | category + subcategory + semester + subject_id |
+| Lab Question Papers | category + subcategory + semester + year + subject_id |
+| Viva Questions | category + subcategory + semester + subject_id |
+| Micro Projects | category + subcategory + semester + subject_id |
+| Projects | category + subcategory |
+| Reference Materials | category + subcategory |
+| Placement Materials | category + subcategory |
+
+---
+
+# 7. Future Admin Workflow
+
+```text
+Admin Panel
+
+↓
+
+Choose Category
+
+↓
+
+Choose Subcategory
+
+↓
+
+Choose Subject (if applicable)
+
+↓
+
+Fill Metadata
+
+↓
+
+Upload PDF to Telegram
+
+↓
+
+Receive Telegram File ID
+
+↓
+
+Store Metadata in PostgreSQL
+```
+
+No Python code changes are required when adding new resources.
+
+---
+
+# 8. Student Workflow
+
+```text
+Student
+
+↓
+
+Button Navigation
+
+↓
+
+Python Backend
+
+↓
+
+Database Query
+
+↓
+
+Telegram File ID
+
+↓
+
+Telegram sends PDF
+```
+
+---
+
+# 9. Design Principles (Frozen)
+
+These principles should remain unchanged unless project requirements change.
+
+1. The menu hierarchy is fixed in code.
+2. Academic resources are stored in PostgreSQL.
+3. One database row represents one downloadable file.
+4. Subjects are stored once and referenced everywhere.
+5. Telegram Private Channel is the storage backend.
+6. No database redesign without a genuine requirement change.
+7. NLP will use the existing filters and database; it will not require redesigning the schema.
+
+---
+
+# Version History
+
+## Version 1.0
+
+- Initial database blueprint finalized.
+- Navigation hierarchy frozen.
+- Subject-resource relationship finalized.
+- PostgreSQL schema finalized.
+- Telegram selected as the permanent storage backend for Version 1.0.
+- Ready for implementation in Phase 3.
