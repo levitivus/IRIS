@@ -1,7 +1,7 @@
 """
 app/database/schema.py
 
-Module responsible for creating PostgreSQL database tables (subjects and resources)
+Module responsible for creating and migrating PostgreSQL database tables (subjects and resources)
 according to the IRIS Database Blueprint.
 """
 
@@ -22,14 +22,15 @@ CREATE TABLE IF NOT EXISTS resources (
     id SERIAL PRIMARY KEY,
     category VARCHAR(50) NOT NULL,
     subcategory VARCHAR(80),
+    sub_subcategory VARCHAR(80),
     subject_id INTEGER REFERENCES subjects(id) ON DELETE SET NULL,
     semester INTEGER,
     year INTEGER,
     module INTEGER,
     internal_exam INTEGER,
     title VARCHAR(255) NOT NULL,
-    file_name VARCHAR(255) NOT NULL,
-    telegram_file_id TEXT NOT NULL,
+    file_name VARCHAR(255),
+    telegram_file_id TEXT,
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 """
@@ -45,10 +46,41 @@ BEGIN
 END $$;
 """
 
+ADD_SUB_SUBCATEGORY_COLUMN_RESOURCES = """
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'resources' AND column_name = 'sub_subcategory'
+    ) THEN
+        ALTER TABLE resources ADD COLUMN sub_subcategory VARCHAR(80);
+    END IF;
+END $$;
+"""
+
+MIGRATE_RESOURCES_CONSTRAINTS = """
+DO $$
+BEGIN
+    -- Ensure file_name and telegram_file_id are nullable
+    ALTER TABLE resources ALTER COLUMN file_name DROP NOT NULL;
+    ALTER TABLE resources ALTER COLUMN telegram_file_id DROP NOT NULL;
+
+    -- Add unique constraint for resources duplicate protection
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'resources_unique_key'
+    ) THEN
+        ALTER TABLE resources ADD CONSTRAINT resources_unique_key UNIQUE NULLS NOT DISTINCT (
+            category, subcategory, sub_subcategory, subject_id, semester, year, module, internal_exam, title
+        );
+    END IF;
+END $$;
+"""
+
 
 def create_tables() -> None:
     """
-    Creates the 'subjects' and 'resources' tables in the PostgreSQL database if they do not exist.
+    Creates the 'subjects' and 'resources' tables in the PostgreSQL database if they do not exist,
+    and applies schema migrations for existing tables.
     """
     connection = get_db_connection()
     if connection is None:
@@ -60,6 +92,8 @@ def create_tables() -> None:
             cursor.execute(CREATE_SUBJECTS_TABLE)
             cursor.execute(ADD_UNIQUE_CONSTRAINT_SUBJECTS)
             cursor.execute(CREATE_RESOURCES_TABLE)
+            cursor.execute(ADD_SUB_SUBCATEGORY_COLUMN_RESOURCES)
+            cursor.execute(MIGRATE_RESOURCES_CONSTRAINTS)
         connection.commit()
         print("Database schema created successfully.")
     except Exception as error:
