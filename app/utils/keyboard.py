@@ -34,3 +34,23 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
+
+
+def get_admin_menu_keyboard() -> InlineKeyboardMarkup:
+    """
+    Builds and returns the IRIS Administration Panel InlineKeyboardMarkup.
+    """
+    keyboard = [
+        [
+            InlineKeyboardButton("📤 Upload Resource", callback_data="admin_upload_resource"),
+            InlineKeyboardButton("📋 View Uploads", callback_data="admin_view_uploads"),
+        ],
+        [
+            InlineKeyboardButton("📊 Statistics", callback_data="admin_statistics"),
+            InlineKeyboardButton("⚙ Settings", callback_data="admin_settings"),
+        ],
+        [
+            InlineKeyboardButton("⬅ Back to Main Menu", callback_data="admin_back_to_main"),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)

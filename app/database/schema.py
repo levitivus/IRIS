@@ -1,7 +1,7 @@
 """
 app/database/schema.py
 
-Module responsible for creating and migrating PostgreSQL database tables (subjects and resources)
+Module responsible for creating and migrating PostgreSQL database tables (subjects, resources, and admins)
 according to the IRIS Database Blueprint.
 """
 
@@ -32,6 +32,17 @@ CREATE TABLE IF NOT EXISTS resources (
     file_name VARCHAR(255),
     telegram_file_id TEXT,
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+CREATE_ADMINS_TABLE = """
+CREATE TABLE IF NOT EXISTS admins (
+    id SERIAL PRIMARY KEY,
+    telegram_id BIGINT UNIQUE NOT NULL,
+    full_name VARCHAR(100) NOT NULL,
+    role VARCHAR(30) NOT NULL DEFAULT 'admin',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 """
 
@@ -79,7 +90,7 @@ END $$;
 
 def create_tables() -> None:
     """
-    Creates the 'subjects' and 'resources' tables in the PostgreSQL database if they do not exist,
+    Creates the 'subjects', 'resources', and 'admins' tables in the PostgreSQL database if they do not exist,
     and applies schema migrations for existing tables.
     """
     connection = get_db_connection()
@@ -94,6 +105,7 @@ def create_tables() -> None:
             cursor.execute(CREATE_RESOURCES_TABLE)
             cursor.execute(ADD_SUB_SUBCATEGORY_COLUMN_RESOURCES)
             cursor.execute(MIGRATE_RESOURCES_CONSTRAINTS)
+            cursor.execute(CREATE_ADMINS_TABLE)
         connection.commit()
         print("Database schema created successfully.")
     except Exception as error:

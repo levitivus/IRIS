@@ -9,7 +9,12 @@ import sys
 from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandler
 
 import config
-from app.handlers.basic import help_command, menu_callback_handler, start_command
+from app.handlers.basic import (
+    admin_command,
+    help_command,
+    menu_callback_handler,
+    start_command,
+)
 
 
 def main() -> None:
@@ -26,6 +31,7 @@ def main() -> None:
     # Register command handlers from app.handlers.basic
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("admin", admin_command))
 
     # Register callback query handler for inline keyboard buttons
     application.add_handler(CallbackQueryHandler(menu_callback_handler))
