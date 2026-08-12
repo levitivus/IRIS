@@ -148,7 +148,8 @@ async def handle_subcategory_selection(update: Update, context: ContextTypes.DEF
 
     sub_subcats = TAXONOMY.get(category, {}).get("sub_subcategories", {}).get(subcategory, [])
 
-    if sub_subcats:
+    # Internal Examination question papers require Semester -> Year -> Internal Exam -> Subject flow
+    if sub_subcats and not (category == "Question Papers" and subcategory == "Internal Examination"):
         prompt_text = f"📁 *{category} → {subcategory}*\n\nSelect option:"
         reply_markup = get_upload_sub_subcategories_keyboard(category, subcategory)
         _push_history(context, STATE_SUB_SUBCATEGORY, prompt_text, reply_markup)
@@ -354,6 +355,25 @@ async def handle_document_upload(update: Update, context: ContextTypes.DEFAULT_T
     if not upload:
         await update.message.reply_text("❌ Upload session expired. Please start again with /admin.")
         return ConversationHandler.END
+
+    category = upload.get("category")
+    subcategory = upload.get("subcategory")
+
+    # Validate required metadata for Question Papers -> Internal Examination
+    if category == "Question Papers" and subcategory == "Internal Examination":
+        missing = []
+        if not upload.get("semester"):
+            missing.append("Semester")
+        if not upload.get("year"):
+            missing.append("Year")
+        if not upload.get("internal_exam") or not upload.get("sub_subcategory"):
+            missing.append("Internal Examination")
+        if not upload.get("subject_id"):
+            missing.append("Subject")
+        if missing:
+            err_text = f"❌ *Upload Error*: Missing required metadata ({', '.join(missing)}). Please restart with /admin."
+            await update.message.reply_text(err_text, parse_mode="Markdown")
+            return ConversationHandler.END
 
     document = update.message.document
     original_file_id = document.file_id

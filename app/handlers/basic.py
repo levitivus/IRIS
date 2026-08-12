@@ -10,9 +10,13 @@ from telegram.ext import ContextTypes
 import config
 from app.services.admin_service import get_admin, is_admin
 from app.services.resource_service import get_recent_resources, get_resource_statistics
+from app.utils.expiration import register_activity_and_track
 from app.utils.keyboard import (
+    get_about_keyboard,
     get_admin_back_keyboard,
     get_admin_menu_keyboard,
+    get_contact_admin_keyboard,
+    get_help_keyboard,
     get_main_menu_keyboard,
 )
 
@@ -28,10 +32,11 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             "Your Academic Resource Assistant\n\n"
             "Choose an option below."
         )
-        await update.message.reply_text(
+        msg = await update.message.reply_text(
             welcome_text,
             reply_markup=get_main_menu_keyboard()
         )
+        register_activity_and_track(update, context, bot_message=msg)
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -262,6 +267,96 @@ async def admin_back_to_main_handler(update: Update, context: ContextTypes.DEFAU
         )
 
 
+async def contact_admin_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Handler for '📞 Contact Admin' student main menu button.
+    Displays formal contact message and inline URL link to administrator's Telegram profile.
+    """
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer()
+
+    text = (
+        "📞 *Contact Admin*\n\n"
+        "For assistance with academic resources or the IRIS system, please contact the administrator.\n\n"
+        "👤 *@raspu1in*"
+    )
+    reply_markup = get_contact_admin_keyboard()
+    await query.message.edit_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+
+
+async def student_help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Handler for '❓ Help' student main menu button and callback.
+    Displays concise guide on how to use IRIS.
+    """
+    query = update.callback_query
+    if query:
+        await query.answer()
+
+    text = (
+        "❓ *How to Use IRIS*\n\n"
+        "1. Select the required resource category from the main menu.\n\n"
+        "2. Follow the available options such as semester, subject, year, or module.\n\n"
+        "3. Select the required resource.\n\n"
+        "4. IRIS will retrieve and send the document.\n\n"
+        "5. Use 🧮 CGPA to calculate SGPA or CGPA using the KTU MCA grading scale.\n\n"
+        "6. Use 🔎 Search to find resources using natural-language queries.\n\n"
+        "For assistance, use 📞 Contact Admin."
+    )
+    reply_markup = get_help_keyboard()
+
+    if query and query.message:
+        await query.message.edit_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+    elif update.message:
+        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+
+
+async def about_iris_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Handler for 'ℹ️ About IRIS' student main menu button.
+    Displays concise project information, technologies, repository architecture, and developer contact.
+    """
+    query = update.callback_query
+    if query:
+        await query.answer()
+
+    text = (
+        "ℹ️ *About IRIS*\n\n"
+        "🎓 *IRIS*\n"
+        "Academic Resource Assistant\n\n"
+        "IRIS is a Telegram-based academic resource retrieval system designed to provide students with organized and convenient access to academic materials.\n\n"
+        "📚 *Resources*\n"
+        "Question Papers • Notes • Lab Manuals\n"
+        "Projects • Placement Materials • Reference Materials\n\n"
+        "⚙️ *Technology*\n"
+        "Python • PostgreSQL • Telegram Bot API\n\n"
+        "🗄️ *Repository*\n"
+        "Private Telegram Repository Channel\n\n"
+        "👨‍💻 *Developer*\n"
+        "[@raspu1in](https://t.me/raspu1in)\n\n"
+        "🔖 *Version*\n"
+        "IRIS v1.0"
+    )
+    reply_markup = get_about_keyboard()
+
+    if query and query.message:
+        await query.message.edit_text(
+            text,
+            reply_markup=reply_markup,
+            parse_mode="Markdown",
+            disable_web_page_preview=True,
+        )
+    elif update.message:
+        await update.message.reply_text(
+            text,
+            reply_markup=reply_markup,
+            parse_mode="Markdown",
+            disable_web_page_preview=True,
+        )
+
+
 async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handler function for processing main menu inline keyboard button presses.
@@ -273,3 +368,4 @@ async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         await query.answer()
         if query.message:
             await query.message.reply_text("Coming Soon 🚧")
+
