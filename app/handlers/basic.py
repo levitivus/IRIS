@@ -5,11 +5,22 @@ Contains basic command and callback handlers for the IRIS Telegram bot (/start, 
 """
 
 from telegram import Update
-from telegram.ext import ContextTypes
+from telegram.ext import CallbackQueryHandler, ContextTypes, ConversationHandler, MessageHandler, filters
 
 import config
+from app.nlp.processor import NLPResult, NLPStatus, process_query
 from app.services.admin_service import get_admin, is_admin
-from app.services.resource_service import get_recent_resources, get_resource_statistics
+from app.services.resource_service import (
+    get_lab_manuals_resources,
+    get_notes_resources,
+    get_placement_resources,
+    get_projects_resources,
+    get_qp_resources,
+    get_recent_resources,
+    get_reference_resources,
+    get_resource_statistics,
+    get_subjects_by_semester,
+)
 from app.utils.expiration import register_activity_and_track
 from app.utils.keyboard import (
     get_about_keyboard,
@@ -18,6 +29,8 @@ from app.utils.keyboard import (
     get_contact_admin_keyboard,
     get_help_keyboard,
     get_main_menu_keyboard,
+    get_search_prompt_keyboard,
+    get_search_result_keyboard,
 )
 
 
@@ -368,4 +381,314 @@ async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         await query.answer()
         if query.message:
             await query.message.reply_text("Coming Soon 🚧")
+
+
+# ==============================================================================
+# PHASE 8 STEP 5 — SEARCH → NLP DIAGNOSTIC INTEGRATION
+# ==============================================================================
+
+STATE_SEARCH_WAITING = 80
+
+
+def format_nlp_diagnostic_message(query_text: str, result: NLPResult) -> str:
+    """Formats NLPResult into a clear diagnostic Telegram Markdown message."""
+    lines = [
+        "🔎 *IRIS Search (Diagnostic Mode)*\n",
+        f"💬 *Query*: _{query_text}_\n",
+        f"⚙️ *Status*: `{result.status.value}`\n",
+    ]
+
+    if result.status == NLPStatus.VALID:
+        lines.append("✅ *Query Successfully Understood!*\n")
+        if result.category:
+            lines.append(f"• *Category*: {result.category}")
+        if result.subcategory:
+            lines.append(f"• *Subcategory*: {result.subcategory}")
+        if result.sub_subcategory:
+            lines.append(f"• *Sub-subcategory*: {result.sub_subcategory}")
+        if result.semester:
+            lines.append(f"• *Semester*: {result.semester}")
+        if result.subject_name:
+            lines.append(f"• *Subject*: {result.subject_name}")
+        elif result.subject_code:
+            lines.append(f"• *Subject Code*: {result.subject_code}")
+        if result.module:
+            lines.append(f"• *Module*: {result.module}")
+        if result.year:
+            lines.append(f"• *Year*: {result.year}")
+        if result.internal_exam:
+            lines.append(f"• *Internal Exam*: {result.internal_exam}")
+
+    elif result.status == NLPStatus.INCOMPLETE:
+        lines.append("⚠️ *Incomplete Query*\n")
+        if result.missing_fields:
+            missing_str = ", ".join(f"`{f}`" for f in result.missing_fields)
+            lines.append(f"• *Missing Parameters*: {missing_str}")
+        if result.reason:
+            lines.append(f"• *Details*: {result.reason}")
+
+    elif result.status == NLPStatus.AMBIGUOUS:
+        lines.append("🤔 *Ambiguous Query*\n")
+        if result.ambiguous_field:
+            lines.append(f"• *Ambiguous Field*: `{result.ambiguous_field}`")
+        if result.ambiguous_candidates:
+            candidates_str = "\n  - " + "\n  - ".join(result.ambiguous_candidates)
+            lines.append(f"• *Possible Candidates*:{candidates_str}")
+        if result.reason:
+            lines.append(f"• *Details*: {result.reason}")
+
+    elif result.status == NLPStatus.UNSUPPORTED:
+        lines.append("🚫 *Unsupported Request*\n")
+        lines.append("IRIS Search supports academic resource queries only.")
+        if result.reason:
+            lines.append(f"• *Details*: {result.reason}")
+
+    elif result.status == NLPStatus.NO_RESOURCE_QUERY:
+        lines.append("💬 *Non-Resource Query*\n")
+        lines.append("No academic resource request detected in input.")
+        if result.reason:
+            lines.append(f"• *Details*: {result.reason}")
+
+    elif result.status == NLPStatus.ERROR:
+        lines.append("❌ *Processing Error*\n")
+        lines.append("An internal error occurred while analyzing the query.")
+
+    return "\n".join(lines)
+
+
+async def search_prompt_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """
+    Entry point for 🔍 Search button.
+    Prompts the student to type an academic resource query.
+    """
+    query = update.callback_query
+    if query:
+        await query.answer()
+
+    text = (
+        "🔎 *IRIS Search*\n\n"
+        "Please type your academic resource query below.\n\n"
+        "_Examples_:\n"
+        "• `S3 DBMS module 2 notes`\n"
+        "• `S2 DAA question paper 2025`\n"
+        "• `Mini project report template`\n"
+        "• `S1 Web Dev Lab record sample`"
+    )
+    reply_markup = get_search_prompt_keyboard()
+
+    if query and query.message:
+        msg = await query.message.edit_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        register_activity_and_track(update, context, bot_message=msg)
+    elif update.message:
+        msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        register_activity_and_track(update, context, bot_message=msg)
+
+    return STATE_SEARCH_WAITING
+
+
+def fetch_resources_for_nlp_result(result: NLPResult) -> list:
+    """
+    Adapter function mapping a VALID NLPResult to the authoritative resource_service.py retrieval functions.
+    """
+    if result.status != NLPStatus.VALID or not result.category:
+        return []
+
+    cat = result.category
+
+    # 1. QUESTION PAPERS
+    if cat == "Question Papers":
+        if not result.subcategory or not result.semester or not result.subject_code:
+            return []
+        subjects = get_subjects_by_semester(result.semester)
+        subj = next((s for s in subjects if s["subject_code"] == result.subject_code), None)
+        if not subj:
+            return []
+        return get_qp_resources(
+            subcategory=result.subcategory,
+            semester=result.semester,
+            subject_id=subj["id"],
+            year=result.year,
+            internal_exam=result.internal_exam,
+        )
+
+    # 2. NOTES
+    elif cat == "Notes":
+        if not result.semester or not result.subject_code or result.module is None:
+            return []
+        subjects = get_subjects_by_semester(result.semester)
+        subj = next((s for s in subjects if s["subject_code"] == result.subject_code), None)
+        if not subj:
+            return []
+        return get_notes_resources(
+            semester=result.semester,
+            subject_id=subj["id"],
+            module=result.module,
+        )
+
+    # 3. LAB MANUALS
+    elif cat == "Lab Manuals":
+        if not result.subcategory or not result.semester or not result.subject_code:
+            return []
+        subjects = get_subjects_by_semester(result.semester)
+        subj = next((s for s in subjects if s["subject_code"] == result.subject_code), None)
+        if not subj:
+            return []
+        return get_lab_manuals_resources(
+            subcategory=result.subcategory,
+            semester=result.semester,
+            subject_id=subj["id"],
+            year=result.year,
+        )
+
+    # 4. PROJECTS (Project year is NOT passed to get_projects_resources)
+    elif cat == "Projects":
+        if not result.subcategory or not result.sub_subcategory:
+            return []
+        return get_projects_resources(
+            subcategory=result.subcategory,
+            sub_subcategory=result.sub_subcategory,
+        )
+
+    # 5. PLACEMENT MATERIALS
+    elif cat == "Placement Materials":
+        if not result.subcategory:
+            return []
+        return get_placement_resources(
+            subcategory=result.subcategory,
+        )
+
+    # 6. REFERENCE MATERIALS
+    elif cat == "Reference Materials":
+        if not result.subcategory:
+            return []
+        return get_reference_resources(
+            subcategory=result.subcategory,
+            sub_subcategory=result.sub_subcategory,
+            year=result.year,
+        )
+
+    return []
+
+
+async def search_query_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """
+    Handles student text query input while in Search mode.
+    Passes text query to process_query().
+    If VALID, queries existing resource_service.py and delivers document via Telegram repository file ID.
+    Otherwise, presents the diagnostic/explanatory response.
+    """
+    if not update.message or not update.message.text:
+        return STATE_SEARCH_WAITING
+
+    query_text = update.message.text.strip()
+    result = process_query(query_text)
+
+    # If NOT VALID, present diagnostic response (Step 5 flow; no DB query performed)
+    if result.status != NLPStatus.VALID:
+        text = format_nlp_diagnostic_message(query_text, result)
+        reply_markup = get_search_result_keyboard()
+        msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        register_activity_and_track(update, context, bot_message=msg)
+        return ConversationHandler.END
+
+    # For VALID NLPResult: query existing resource_service.py via adapter mapping
+    try:
+        resources = fetch_resources_for_nlp_result(result)
+    except Exception as err:
+        print(f"Error fetching resources for Search query '{query_text}': {err}")
+        resources = []
+
+    chat_id = update.effective_chat.id if update.effective_chat else update.message.chat_id
+
+    # Handle No Result Found case safely
+    if not resources:
+        subject_str = f" | Subject: {result.subject_name}" if result.subject_name else ""
+        text = (
+            "📄 *Resource Not Available*\n\n"
+            f"No resources matching your query were found in the IRIS database.\n\n"
+            f"💬 *Query*: _{query_text}_\n"
+            f"⚙️ *Category*: {result.category}{subject_str}\n\n"
+            "Please check back later or try another query."
+        )
+        reply_markup = get_search_result_keyboard()
+        msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        register_activity_and_track(update, context, bot_message=msg)
+        return ConversationHandler.END
+
+    # Matching resource found: deliver first matching resource via existing file delivery path
+    resource = resources[0]
+    file_id = resource.get("telegram_file_id")
+
+    if not file_id:
+        text = (
+            "⚠️ *Resource Error*\n\n"
+            "The resource exists in the database, but its stored Telegram file reference is unavailable.\n\n"
+            "Please contact the administrator."
+        )
+        reply_markup = get_search_result_keyboard()
+        msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        register_activity_and_track(update, context, bot_message=msg)
+        return ConversationHandler.END
+
+    try:
+        caption = f"📄 {resource['title']}"
+        await context.bot.send_document(
+            chat_id=chat_id,
+            document=file_id,
+            caption=caption,
+        )
+        text = f"✅ *{result.category} Delivered!*\n\n📌 *{resource['title']}*"
+        reply_markup = get_search_result_keyboard()
+        msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        register_activity_and_track(update, context, bot_message=msg)
+    except Exception as error:
+        print(f"Error delivering Telegram document {file_id}: {error}")
+        text = (
+            "⚠️ *Delivery Error*\n\n"
+            "Failed to send document from Telegram repository. Please try again later."
+        )
+        reply_markup = get_search_result_keyboard()
+        msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        register_activity_and_track(update, context, bot_message=msg)
+
+    return ConversationHandler.END
+
+
+async def search_cancel_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """
+    Cancels Search mode and returns to student main menu.
+    """
+    query = update.callback_query
+    if query:
+        await query.answer()
+        text = (
+            "🎓 *IRIS*\n"
+            "Your Academic Resource Assistant\n\n"
+            "Choose an option below."
+        )
+        await query.message.edit_text(text, reply_markup=get_main_menu_keyboard(), parse_mode="Markdown")
+
+    return ConversationHandler.END
+
+
+def get_search_conversation_handler() -> ConversationHandler:
+    """
+    Constructs ConversationHandler for student Search mode -> NLP query processing.
+    """
+    return ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(search_prompt_handler, pattern="^search$"),
+        ],
+        states={
+            STATE_SEARCH_WAITING: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, search_query_handler),
+            ],
+        },
+        fallbacks=[
+            CallbackQueryHandler(search_cancel_handler, pattern="^student_back_to_main$"),
+            CallbackQueryHandler(search_prompt_handler, pattern="^search$"),
+        ],
+        allow_reentry=True,
+    )
+
 

@@ -22,6 +22,7 @@ from app.handlers.basic import (
     admin_statistics_handler,
     admin_view_uploads_handler,
     contact_admin_handler,
+    get_search_conversation_handler,
     help_command,
     menu_callback_handler,
     start_command,
@@ -79,6 +80,9 @@ def main() -> None:
 
     # Register CGPA calculator conversation handler
     application.add_handler(get_cgpa_conversation_handler())
+
+    # Register Search conversation handler (Phase 8 Step 5)
+    application.add_handler(get_search_conversation_handler())
 
     # Register command handlers from app.handlers.basic
     application.add_handler(CommandHandler("start", start_command))

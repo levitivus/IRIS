@@ -692,5 +692,27 @@ def get_about_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 
+def get_search_prompt_keyboard() -> InlineKeyboardMarkup:
+    """Builds keyboard for Search prompt screen with Main Menu navigation."""
+    keyboard = [
+        [
+            InlineKeyboardButton("🏠 Main Menu", callback_data="student_back_to_main"),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_search_result_keyboard() -> InlineKeyboardMarkup:
+    """Builds keyboard for Search diagnostic result screen with Search Again and Main Menu navigation."""
+    keyboard = [
+        [
+            InlineKeyboardButton("🔍 Search Again", callback_data="search"),
+            InlineKeyboardButton("🏠 Main Menu", callback_data="student_back_to_main"),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+
 
 
