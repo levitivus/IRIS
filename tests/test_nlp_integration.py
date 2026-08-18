@@ -129,8 +129,8 @@ class TestNLPIntegration(unittest.IsolatedAsyncioTestCase):
             document="file_dbms_mod2",
             caption="📄 DBMS Module 2 Notes",
         )
-        message.reply_text.assert_called_once()
-        output_text = message.reply_text.call_args[0][0]
+        self.context.bot.send_message.assert_called_once()
+        output_text = self.context.bot.send_message.call_args[1]["text"]
         self.assertIn("Delivered", output_text)
         self.assertIn("Notes", output_text)
 

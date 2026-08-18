@@ -26,6 +26,22 @@ def track_temp_message(chat_id: int, message_id: int) -> None:
     _temporary_ui_messages[chat_id].add(message_id)
 
 
+async def cleanup_tracked_ui_messages(bot, chat_id: int) -> None:
+    """
+    Deletes all currently tracked temporary bot UI/navigation messages for a chat.
+    Invoked upon successful resource delivery so that obsolete navigation UI
+    above the delivered file is removed, allowing the next-action menu to appear
+    directly below the delivered file.
+    Does NOT delete user messages or delivered PDF files.
+    """
+    msg_ids = _temporary_ui_messages.pop(chat_id, set())
+    for msg_id in msg_ids:
+        try:
+            await bot.delete_message(chat_id=chat_id, message_id=msg_id)
+        except Exception:
+            pass
+
+
 def reset_inactivity_timer(context: ContextTypes.DEFAULT_TYPE, chat_id: int, timeout_seconds: int = INACTIVITY_TIMEOUT_SECONDS) -> None:
     """
     Resets the 10-minute inactivity cleanup timer for a given chat_id.

@@ -206,8 +206,8 @@ class TestNLPRetrievalIntegration(unittest.IsolatedAsyncioTestCase):
             document="file_dbms_mod2",
             caption="📄 DBMS Module 2 Notes",
         )
-        message.reply_text.assert_called_once()
-        self.assertIn("Delivered", message.reply_text.call_args[0][0])
+        self.context.bot.send_message.assert_called_once()
+        self.assertIn("Delivered", self.context.bot.send_message.call_args[1]["text"])
 
     @patch("app.handlers.basic.fetch_resources_for_nlp_result")
     async def test_search_handler_no_result_found(self, mock_fetch):

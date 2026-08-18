@@ -21,7 +21,7 @@ from app.services.resource_service import (
     get_resource_statistics,
     get_subjects_by_semester,
 )
-from app.utils.expiration import register_activity_and_track
+from app.utils.expiration import cleanup_tracked_ui_messages, register_activity_and_track
 from app.utils.keyboard import (
     get_about_keyboard,
     get_admin_back_keyboard,
@@ -632,14 +632,26 @@ async def search_query_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     try:
         caption = f"📄 {resource['title']}"
+
+        # 1. Send the PDF document into chat
         await context.bot.send_document(
             chat_id=chat_id,
             document=file_id,
             caption=caption,
         )
+
+        # 2. Clean up temporary search prompt / obsolete navigation UI messages above the PDF
+        await cleanup_tracked_ui_messages(context.bot, chat_id)
+
+        # 3. Send next-action navigation menu directly BELOW the delivered PDF
         text = f"✅ *{result.category} Delivered!*\n\n📌 *{resource['title']}*"
         reply_markup = get_search_result_keyboard()
-        msg = await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode="Markdown",
+        )
         register_activity_and_track(update, context, bot_message=msg)
     except Exception as error:
         print(f"Error delivering Telegram document {file_id}: {error}")

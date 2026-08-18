@@ -12,6 +12,7 @@ from typing import Optional
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from app.utils.expiration import cleanup_tracked_ui_messages, register_activity_and_track
 from app.services.resource_service import (
     get_lab_manuals_available_semesters,
     get_lab_manuals_available_subjects,
@@ -108,15 +109,29 @@ async def _deliver_student_document(
         return
 
     try:
+        chat_id = query.message.chat_id
         caption = f"📄 {resource['title']}"
+
+        # 1. Send the PDF document (appears in chat)
         await context.bot.send_document(
-            chat_id=query.message.chat_id,
+            chat_id=chat_id,
             document=file_id,
             caption=caption
         )
+
+        # 2. Delete the active navigation UI message above the PDF
+        await cleanup_tracked_ui_messages(context.bot, chat_id)
+
+        # 3. Send the next-action navigation menu directly BELOW the delivered PDF
         text = f"✅ *{category_name} Delivered!*\n\n📌 *{resource['title']}*"
         reply_markup = get_student_phase7_resource_result_keyboard(back_callback)
-        await query.message.edit_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+        msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode="Markdown",
+        )
+        register_activity_and_track(update, context, bot_message=msg)
     except Exception as error:
         print(f"Error sending Telegram document {file_id}: {error}")
         text = (
