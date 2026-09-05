@@ -560,4 +560,5 @@ def get_upload_conversation_handler() -> ConversationHandler:
         per_message=False,
         per_chat=True,
         per_user=True,
+        allow_reentry=True,
     )
