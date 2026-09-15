@@ -339,18 +339,14 @@ async def about_iris_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         "ℹ️ *About IRIS*\n\n"
         "🎓 *IRIS*\n"
         "Academic Resource Assistant\n\n"
-        "IRIS is a Telegram-based academic resource retrieval system designed to provide students with organized and convenient access to academic materials.\n\n"
+        "IRIS is a Telegram-based academic resource retrieval system to enhance access to academic materials.\n\n"
         "📚 *Resources*\n"
         "Question Papers • Notes • Lab Manuals\n"
         "Projects • Placement Materials • Reference Materials\n\n"
-        "⚙️ *Technology*\n"
-        "Python • PostgreSQL • Telegram Bot API\n\n"
-        "🗄️ *Repository*\n"
-        "Private Telegram Repository Channel\n\n"
+        "⚙️ *Technology Stack*\n"
+        "Python 3 • Pyrogram • AsyncIO • PostgreSQL • Telegram Bot API • NLP • Docker • AWS\n\n"
         "👨‍💻 *Developer*\n"
         "[@raspu1in](https://t.me/raspu1in)\n\n"
-        "🔖 *Version*\n"
-        "IRIS v1.0"
     )
     reply_markup = get_about_keyboard()
 
